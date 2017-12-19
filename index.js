@@ -259,14 +259,20 @@ DailyRotateFile.prototype.log = function (level, msg, meta, callback) {
 // #### @data {String|Buffer} Data to write to the instance's stream.
 // #### @cb {function} Continuation to respond to when complete.
 // Write to the stream, ensure execution of a callback on completion.
-//F
+//
 DailyRotateFile.prototype._write = function (data, callback) {
   // If this is a file write stream, we could use the builtin
   // callback functionality, however, the stream is not guaranteed
   // to be an fs.WriteStream.
   var ret = this._stream.write('writing log no: '+count+' : '+data);
+ 
+  //
+  //Write stream, to be modified and count, to be deleted
+  //
   count++;
   console.log('writing log no: ',count,' : ',data);
+  //
+
   if (!callback) {
     return;
   }
@@ -463,35 +469,29 @@ DailyRotateFile.prototype.open = function (callback) {
     return callback(true);
   } else if (!this._stream || (this.maxsize && this._size >= this.maxsize) ||
     this._filenameHasExpired()) {
-      var filename = this._getFilename();
-      var dirname = this.dirname;
-      var maxSize = this.maxsize;
-      var thisObj = this;
-        fs.stat(this.dirname+'/'+this._getFilename(),function(err,stats){
-          console.log("cond: ",!err , maxSize,current_size)
-          if(err){
-            console.log(err);
-          }
-          else if(!err){
-            current_size=stats['size'];
-            if(maxSize<=current_size){
-              var backupTime = new Date();
-              console.log(maxSize,current_size)
-              backupTime = backupTime.getHours() +"_" +backupTime.getMinutes() +"_" + backupTime.getSeconds();
-              // thisObj._stream.once('drain', function () {
-                copyFile(filename, filename+'-backup-'+backupTime,dirname);
-              // });
-              
-            }
-          }
-        })
       
-    //   if(this.maxSize && this.maxsize>=current_size){
-    //     var backupTime = new Date();
-    //     console.log(this.maxsize,current_size)
-    //     backupTime = backupTime.getHours() +"_" +backupTime.getMinutes()
-    //     copyFile(this._getFilename(), this._getFilename()+'-backup-'+backupTime,this.dirname);
-    //  }
+    //
+    //Fetching the file size
+    //and calling `copy file and clear orignal file content` function 
+    //
+    var filename = this._getFilename();
+    var dirname = this.dirname;
+    var maxSize = this.maxsize;
+    fs.stat(this.dirname+'/'+this._getFilename(),function(err,stats){
+      console.log("cond: ",!err , maxSize,current_size)
+      if(err){
+        console.log(err);
+      }
+      else if(!err){
+        current_size=stats['size'];
+        if(maxSize<=current_size){
+          var backupTime = new Date();
+          console.log(maxSize,current_size)
+          backupTime = backupTime.getHours() +"_" +backupTime.getMinutes() +"_" + backupTime.getSeconds();
+          copyFile(filename, filename+'-backup-'+backupTime,dirname);
+        }
+      }
+    })
     this._cleanOldFiles();
     //
     // If we dont have a stream or have exceeded our size, then create
@@ -733,23 +733,21 @@ DailyRotateFile.prototype._getFile = function (inc) {
       this._currentFiles = this._currentFiles.slice(1);
     }
   }
-    
-  var backupTime = new Date();
-  backupTime = backupTime.getHours() +"_" +backupTime.getMinutes()
-  
-  return this._created ? filename : filename;
-};
-//copy the $file to $dir
-var copyFile = (file1, file2, dir)=>{
-  //include the fs, path modules
-  var fs = require('fs');
-  var path = require('path');
 
-  //gets file name and adds it to dir
-  // var f = path.basename(file2);
+  //
+  //Removed the `.1`.. from filename 
+  //
+  return filename;
+};
+
+//
+//Copy file content of file1 to file2
+//in the same dir 
+//and clears the content from file 1.
+//
+var copyFile = (file1, file2, dir)=>{
   var source = fs.createReadStream(dir+"/"+file1);
   var dest = fs.createWriteStream(dir+"/"+file2);
-
   source.pipe(dest);
   source.on('end', function() { fs.writeFile(dir+'/'+file1,'',function(data){console.log('Clear!')}) });
   source.on('error', function(err) { console.log(err); });
